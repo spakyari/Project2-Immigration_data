@@ -406,6 +406,7 @@ def diversity_by_state(locations, years, top):
 def top_colonies(top):
 
     population_count = func.sum(details.admissions).label('Count')
+    population_max = func.sum(population_count).label('Max')
 
     if top == 'all':
         sortby = population_count.desc()
@@ -416,23 +417,9 @@ def top_colonies(top):
 
     session = Session(engine)
 
-    stmt = session.query(
-                            details.birth_country,
-                            details.residence_county,
-                            details.residence,
-                            population_count,
-                            states.latitude, 
-                            states.longitude 
-                        )\
-    .group_by(
-                            details.birth_country,
-                            details.residence_county,
-                            details.residence,
-                            states.latitude, 
-                            states.longitude 
-        
-                )\
-    .filter(details.residence == states.name)\
+    stmt = session.query(details.birth_country, details.residence, details.residence_county, counties.latitude, counties.longitude, population_count)\
+    .join(counties, and_(details.residence_county == counties.county, details.residence == counties.state))\
+    .group_by(details.birth_country, details.residence, details.residence_county, counties.latitude, counties.longitude)\
     .order_by(sortby)\
     .limit(int(top))\
     .statement
@@ -441,18 +428,21 @@ def top_colonies(top):
 
     df = pd.read_sql_query(stmt, session.bind)
 
-    df.head()
+    result = df.to_json(orient="records")
 
-    Data = df.to_json(orient="records")
+    Data = json.loads(result)
 
 
-    headers = [{'headerName':column, 'column':column} for column in df.columns]
+
+    headers = [{'headerName':column, 'field':column} for column in df.columns]
 
 
     output_json = {
-                    'heards':headers,
+                    'headers':headers,
                     'data':Data
                 }
+
+
 
     return jsonify(output_json)
 

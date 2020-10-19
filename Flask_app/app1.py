@@ -450,7 +450,7 @@ def top_colonies(top):
 
 
     output_json = {
-                    'heards':headers,
+                    'headers':headers,
                     'data':Data
                 }
 

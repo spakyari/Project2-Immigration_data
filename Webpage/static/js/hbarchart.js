@@ -92,5 +92,7 @@ buildPlot("education", "plot2")
 buildPlot("median_income", "plot3")
 buildPlot("income", "plot4")
 buildPlot("occupation", "plot5")
-  
+
+
+
 
