@@ -1,42 +1,38 @@
-// specify the columns
-const onGridReady=(data)=>{
-  console.log("grid is ready")
-  fetch("http://127.0.0.1:5000/api/v1.0/immigrants_by_state/all/all/all").then(resp=>resp.json())
-  .then(resp=>{console.log(resp)
-    params.api.applyTransaction({add:resp})})
+var columnDefs = [
+  {headerName: "Make", field: "make", sortable: true, filter: true, rowGroup: true},
+  {headerName: "Model", field: "model", sortable: true, filter: true, rowGroup: true },
+  {headerName: "Price", field: "price", sortable: true, filter: true, rowGroup: true }
+];
 
-
-var columnDefs= [
-  { headerName: "State", field: "state" },
-  { headerName: "count", field: "count",}, 
-  {headerName: "Lat",field: "lat",},
-  { headerName: "Lng", field: "lng" },
-  ]
-
-// specify the data
-var rowData= [
-  { state: data.locations[0], count: data.locations[4], lat: data.locations[1], lng: data.locations[2]}]
-// let the grid know which columns and what data to use
-var gridOptions = {
-  columnDefs: columnDefs,
-  rowData: rowData,
-  onGridReady: function () {
-      gridOptions.api.sizeColumnsToFit();
+var autoGroupColumnDef = {
+  headerName: 'Model',
+  field: 'model',
+  cellRenderer: 'ageGroupCellRenderer',
+  cellRendererParams: {
+    checkbox: true
   }
-};
-
-// wait for the document to be loaded, otherwise
-// ag-Grid will not find the div in the document.
-document.addEventListener("DOMContentLoaded", function() {
-
-  // lookup the container we want the Grid to use
-  var eGridDiv = document.querySelector('#myGrid');
-
-  // create the grid passing in the div to use together with the columns & data we want to use
-  new agGrid.Grid(eGridDiv, gridOptions);
-});
-
 }
 
+var gridOptions = {
+  columnDefs: columnDefs,
+  autoGroupColumnDef: autoGroupColumnDef,
+  rowSelection: 'multiple',
+  
+};
 
+var eGridDiv = document.querySelector('#myGrid')
 
+new agGrid.Grid(eGridDiv, gridOptions);
+
+agGrid.simpleHttpRequest({
+  url: 'http://127.0.0.1:5000/api/v1.0/top_colonies/all'
+}).then(function(data){
+  gridOptions.api.setRowData(data)
+})
+
+function getSelectedRows() {
+  var selectedNodes = gridOptions.api.getSelectedNodes()
+  var selectedData = selectedNodes.map( function(node) { return node.data })
+  var selectedDataStringPresentation = selectedData.map( function(node) { return node.make + ' ' + node.model }).join(', ')
+  alert('Selected nodes: ' + selectedDataStringPresentation);
+}

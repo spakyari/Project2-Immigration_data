@@ -1,6 +1,8 @@
 import numpy as np
 import datetime as dt
 import pandas as pd
+import requests
+import json
 
 
 import sqlalchemy
@@ -165,9 +167,11 @@ def welcome():
         f"/api/v1.0/immigrants_by_county/(countries or regions)/(years)/(top)<br/>"
         f"/api/v1.0/immigrants_by_state/(countries or regions)/(years)/(top)<br/>"
         f"/api/v1.0/diversity_by_state/(locations)/(years)/(top)<br/>"
+        f"/api/v1.0/top_colonies/(top)<br/>"
         f"Whereas: <br/>"
         f"countries Ex.1 China, Ex.2 China&Japan, Ex.4 region:Europe Ex.5 all<br/>"
         f"years Ex.1 2012, Ex.2 2012&2014, Ex.3 all<br/>"
+  
     )
 
 @app.route("/api/v1.0/countries")
@@ -247,12 +251,6 @@ def migration_data(demography):
 
     session.close
 
-    meta_dict = {
-                'demography':demography,
-                'labels':df.iloc[:,1].to_list()
-                }
-
-
     if demography == 'age':
         n = 2
         demography_df = df.iloc[:, n:7]
@@ -260,7 +258,7 @@ def migration_data(demography):
     elif demography == 'education':
         
         n = 7
-        demography_df = df.iloc[:, n:16]
+        demography_df = df.iloc[:, n:14]
         
     elif demography == 'median_income':
         
@@ -280,11 +278,19 @@ def migration_data(demography):
     else:
         return jsonify('data not found')
 
-    traces = {column : demography_df[column].to_list() for column in demography_df.columns}
+    headers = [column for column in demography_df.columns]
+    
 
-    myJSON = [meta_dict, traces]
+    traces = [demography_df[column].to_list() for column in demography_df.columns]
 
-    return jsonify(myJSON)
+    myjson = {
+        'demography':demography,
+        'labels':df.iloc[:,1].to_list(),
+        'headers':headers,
+        'values': traces
+        }
+
+    return jsonify(myjson)
 
     
 
@@ -395,6 +401,60 @@ def diversity_by_state(locations, years, top):
     }
 
     return jsonify(json)
+
+@app.route("/api/v1.0/top_colonies/<top>")
+def top_colonies(top):
+
+    population_count = func.sum(details.admissions).label('Count')
+
+    if top == 'all':
+        sortby = population_count.desc()
+        top = 9000000
+    else:
+        sortby = population_count.desc()
+
+
+    session = Session(engine)
+
+    stmt = session.query(
+                            details.birth_country,
+                            details.residence_county,
+                            details.residence,
+                            population_count,
+                            states.latitude, 
+                            states.longitude 
+                        )\
+    .group_by(
+                            details.birth_country,
+                            details.residence_county,
+                            details.residence,
+                            states.latitude, 
+                            states.longitude 
+        
+                )\
+    .filter(details.residence == states.name)\
+    .order_by(sortby)\
+    .limit(int(top))\
+    .statement
+
+    session.close
+
+    df = pd.read_sql_query(stmt, session.bind)
+
+    df.head()
+
+    Data = df.to_json(orient="records")
+
+
+    headers = [{'headerName':column, 'column':column} for column in df.columns]
+
+
+    output_json = {
+                    'heards':headers,
+                    'data':Data
+                }
+
+    return jsonify(output_json)
 
 
 
